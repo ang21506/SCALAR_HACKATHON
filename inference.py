@@ -5,12 +5,19 @@ from env import SmartIrrigationEnv
 from schemas import Action
 
 # Read environment variables with defaults where required
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1").strip()
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini").strip()
 HF_TOKEN = os.getenv("HF_TOKEN")
+HF_TOKEN = HF_TOKEN.strip() if HF_TOKEN is not None else None
 
-if HF_TOKEN is None:
+if HF_TOKEN is None or HF_TOKEN == "":
     raise ValueError("HF_TOKEN environment variable is required")
+
+if API_BASE_URL == "":
+    raise ValueError("API_BASE_URL must not be empty")
+
+if MODEL_NAME == "":
+    raise ValueError("MODEL_NAME must not be empty")
 
 # Initialize OpenAI client
 client = OpenAI(
