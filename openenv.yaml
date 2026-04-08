@@ -1,0 +1,16 @@
+version: '1.0'
+name: smart-irrigation-env
+description: "A realistic agricultural reinforcement learning environment for smart irrigation, subject to water quotas, energy tariffs, and weather uncertainty."
+entrypoint: env.py:SmartIrrigationEnv
+schemas:
+  observation: schemas.py:Observation
+  action: schemas.py:Action
+  reward: schemas.py:Reward
+  state: schemas.py:State
+tasks:
+  - id: task1_easy
+    description: "Single crop, identical soil across 2 plots, simple tariff schedule, relatively accurate weather forecast."
+  - id: task2_medium
+    description: "Mixed crops spread across 4 plots, tighter water quotas, and pronounced peak/off-peak tariff differences."
+  - id: task3_hard
+    description: "5 diverse plots, highly uncertain rainfall, strict water limits, and complex tariffs."
