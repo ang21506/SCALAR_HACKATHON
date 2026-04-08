@@ -1,3 +1,5 @@
 pydantic
 openai
 pandas
+fastapi
+uvicorn
