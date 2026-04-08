@@ -1,163 +1,110 @@
-import json
 import os
-import sys
-from typing import Any, Dict, Optional
-
+import json
 from openai import OpenAI
-
 from env import SmartIrrigationEnv
 from schemas import Action
 
-
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini")
+# Read environment variables with defaults where required
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1").strip()
+MODEL_NAME = os.getenv("MODEL_NAME", "gpt-4.1-mini").strip()
 HF_TOKEN = os.getenv("HF_TOKEN")
-BENCHMARK_NAME = os.getenv("BENCHMARK", "smart-irrigation-env")
-TASK_NAME = os.getenv("TASK_NAME", os.getenv("TASK", "task1_easy"))
+HF_TOKEN = HF_TOKEN.strip() if HF_TOKEN is not None else None
 
-if HF_TOKEN is None:
+if HF_TOKEN is None or HF_TOKEN == "":
     raise ValueError("HF_TOKEN environment variable is required")
 
-client = OpenAI(base_url=API_BASE_URL, api_key=HF_TOKEN)
+if API_BASE_URL == "":
+    raise ValueError("API_BASE_URL must not be empty")
+
+if MODEL_NAME == "":
+    raise ValueError("MODEL_NAME must not be empty")
+
+# Initialize OpenAI client
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=HF_TOKEN
+)
 
 
-def _compact_json(value: Any) -> str:
-    return json.dumps(value, separators=(",", ":"), ensure_ascii=True)
+def run_inference(task_name: str, env_id: str, seed: int = 42):
+    env = SmartIrrigationEnv(task=task_name, seed=seed)
 
+    print(f"[START] task={task_name} env={env_id} model={MODEL_NAME}")
 
-def _format_bool(value: bool) -> str:
-    return "true" if value else "false"
-
-
-def _extract_error(info: Optional[Dict[str, Any]]) -> Optional[str]:
-    if not isinstance(info, dict):
-        return None
-    error_value = info.get("last_action_error")
-    if error_value is None:
-        return None
-    return str(error_value).replace("\n", " ")
-
-
-def _rule_based_action(obs_dict: Dict[str, Any]) -> Dict[str, Any]:
-    action_amounts = []
-    heavy_rain_expected = obs_dict["rain_probability"] > 0.5 and obs_dict["expected_rainfall"] > 1.0
-
-    for moisture in obs_dict["soil_moistures"]:
-        if moisture < 0.35:
-            action_amounts.append(1 if heavy_rain_expected else (2 if obs_dict["tariff_band"] == "off-peak" else 1))
-        elif moisture < 0.55 and not heavy_rain_expected and obs_dict["tariff_band"] == "off-peak":
-            action_amounts.append(1)
-        else:
-            action_amounts.append(0)
-
-    return {"irrigation_amounts": action_amounts}
-
-
-def _llm_action(obs_dict: Dict[str, Any], num_plots: int) -> Dict[str, Any]:
-    prompt = f"""
-You are controlling an irrigation system for {num_plots} plots.
-Return only valid JSON with this schema:
-{{"irrigation_amounts":[0,0,0]}}
-
-Observation:
-{json.dumps(obs_dict, indent=2)}
-
-Guidelines:
-- Keep soil moisture in the healthy range.
-- Avoid overwatering if rain is likely.
-- Use integer irrigation units only.
-""".strip()
-
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-    )
-    content = response.choices[0].message.content or "{}"
-    action_dict = json.loads(content)
-    irrigation_amounts = action_dict.get("irrigation_amounts")
-    if not isinstance(irrigation_amounts, list):
-        raise ValueError("LLM response missing irrigation_amounts list")
-
-    normalized_amounts = []
-    for value in irrigation_amounts[:num_plots]:
-        normalized_amounts.append(max(0, int(value)))
-    while len(normalized_amounts) < num_plots:
-        normalized_amounts.append(0)
-
-    return {"irrigation_amounts": normalized_amounts}
-
-
-def _choose_action(obs_dict: Dict[str, Any], num_plots: int) -> Dict[str, Any]:
-    try:
-        return _llm_action(obs_dict, num_plots)
-    except Exception as exc:
-        print(f"LLM fallback: {exc}", file=sys.stderr)
-        return _rule_based_action(obs_dict)
-
-
-def _emit_start() -> None:
-    print(f"[START] task={TASK_NAME} env={BENCHMARK_NAME} model={MODEL_NAME}")
-
-
-def _emit_step(step_number: int, action_dict: Dict[str, Any], reward_value: float, done: bool, error: Optional[str]) -> None:
-    error_text = "null" if error is None else error.replace("\n", " ")
-    print(
-        f"[STEP] step={step_number} action={_compact_json(action_dict)} "
-        f"reward={reward_value:.2f} done={_format_bool(done)} error={error_text}"
-    )
-
-
-def _emit_end(success: bool, step_count: int, rewards: list[float]) -> None:
-    reward_text = ",".join(f"{reward:.2f}" for reward in rewards)
-    print(f"[END] success={_format_bool(success)} steps={step_count} rewards={reward_text}")
-
-
-def run_episode() -> None:
-    env = SmartIrrigationEnv(task=TASK_NAME)
-    rewards: list[float] = []
-    step_count = 0
+    step_idx = 0
+    rewards = []
     success = False
 
-    _emit_start()
-
     try:
-        observation = env.reset()
+        obs = env.reset(seed=seed)
         done = False
 
         while not done:
-            step_count += 1
-            obs_dict = observation.model_dump()
-            action_dict = _choose_action(obs_dict, env.num_plots)
+            step_idx += 1
+            obs_dict = obs.model_dump()
 
-            reward_value = 0.0
-            step_error: Optional[str] = None
+            prompt = f"""
+            You are managing an irrigation system for {env.num_plots} agricultural plots.
+            Current observation:
+            {json.dumps(obs_dict, indent=2)}
 
+            Rules:
+            1. Maintain soil moisture between 0.3 and 0.8.
+            2. Try to minimize energy costs (avoid watering heavily in "peak" tariff).
+            3. Take expected rainfall into account to avoid wasting water.
+            4. Provide the result as a JSON object with the format:
+               {{"irrigation_amounts": [integer, integer, ... (for each plot)]}}
+            where each integer represents discrete units of water to apply.
+
+            Only output valid JSON.
+            """
+
+            action_dict = None
             try:
-                action = Action(**action_dict)
-                observation, reward, done, info = env.step(action)
-                reward_value = float(reward.value)
-                step_error = _extract_error(info)
-            except Exception as exc:
-                done = True
-                step_error = str(exc).replace("\n", " ")
-
-            rewards.append(reward_value)
-            _emit_step(step_count, action_dict, reward_value, done, step_error)
-
-        try:
-            success = bool(env.grade().success)
-        except Exception:
-            success = bool(done)
-    finally:
-        close_method = getattr(env, "close", None)
-        if callable(close_method):
-            try:
-                close_method()
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"}
+                )
+                res_str = response.choices[0].message.content
+                action_dict = json.loads(res_str)
             except Exception:
-                pass
-        _emit_end(success, step_count, rewards)
+                action_dict = None
+
+            if action_dict and "irrigation_amounts" not in action_dict:
+                action_dict = None
+
+            if action_dict is None:
+                action_dict = {"irrigation_amounts": [0] * env.num_plots}
+
+            action = Action(**action_dict)
+            obs, reward, done, info = env.step(action)
+            action_str = json.dumps(action.model_dump(), separators=(",", ":"))
+
+            r_val = float(reward.value)
+            rewards.append(r_val)
+
+            done_str = "true" if done else "false"
+            last_action_error = info.get("last_action_error") if isinstance(info, dict) else None
+            err_str = str(last_action_error).replace("\n", " ") if last_action_error is not None else "null"
+
+            print(f"[STEP] step={step_idx} action={action_str} reward={r_val:.2f} done={done_str} error={err_str}")
+
+        grade = env.grade()
+        success = bool(grade.success)
+    except Exception:
+        success = False
+    finally:
+        try:
+            env.close()
+        finally:
+            success_str = "true" if success else "false"
+            rewards_str = ",".join([f"{r:.2f}" for r in rewards])
+            print(f"[END] success={success_str} steps={step_idx} rewards={rewards_str}")
 
 
 if __name__ == "__main__":
-    run_episode()
+    task_name = os.getenv("TASK_NAME", "task1_easy")
+    env_id = os.getenv("BENCHMARK", "smart-irrigation")
+    seed = int(os.getenv("SEED", "42"))
+    run_inference(task_name=task_name, env_id=env_id, seed=seed)

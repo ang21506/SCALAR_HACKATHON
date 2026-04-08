@@ -1,12 +1,14 @@
 import random
 import os
 import pandas as pd
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, List, Optional
 from schemas import Observation, Action, Reward, State, Grade
 
 class SmartIrrigationEnv:
-    def __init__(self, task: str = "task1_easy", **kwargs):
+    def __init__(self, task: str = "task1_easy", seed: Optional[int] = None, **kwargs):
         self.task = task
+        self.seed = seed if seed is not None else 42
+        self.rng = random.Random(self.seed)
         self.episode_length = 28 # 1 week at 6 hr intervals
         self.step_length_hours = 6
         
@@ -44,17 +46,20 @@ class SmartIrrigationEnv:
             
         self.reset()
         
-    def reset(self, **kwargs) -> Observation:
+    def reset(self, seed: Optional[int] = None, **kwargs) -> Observation:
+        if seed is not None:
+            self.seed = seed
+            self.rng = random.Random(self.seed)
         self.step_count = 0
         self.cumulative_reward = 0.0
         self.total_energy_penalty = 0.0
         self.total_water_penalty = 0.0
         self.total_stress_penalty = 0.0
         self.total_waste_penalty = 0.0
-        self.true_soil_moistures = [float(random.uniform(0.4, 0.7)) for _ in range(self.num_plots)]
-        self.growth_stages = [float(random.uniform(0.1, 0.5)) for _ in range(self.num_plots)]
+        self.true_soil_moistures = [float(self.rng.uniform(0.4, 0.7)) for _ in range(self.num_plots)]
+        self.growth_stages = [float(self.rng.uniform(0.1, 0.5)) for _ in range(self.num_plots)]
         self.remaining_daily_quota = float(self.base_quota)
-        self.upcoming_rain = random.random() < 0.2
+        self.upcoming_rain = self.rng.random() < 0.2
         self.history = {i: [] for i in range(self.num_plots)}
         for i in range(self.num_plots):
             self.history[i].append(self.true_soil_moistures[i])
@@ -65,7 +70,7 @@ class SmartIrrigationEnv:
         tariff_band = "peak" if 14 <= hour_of_day < 20 else "off-peak"
         
         rain_prob = 0.8 if self.upcoming_rain else 0.1
-        expected_rain = random.uniform(2.0, 4.0) if self.upcoming_rain else 0.0
+        expected_rain = self.rng.uniform(2.0, 4.0) if self.upcoming_rain else 0.0
         
         if self.weather_data is not None and self.step_count < len(self.weather_data):
             row = self.weather_data.iloc[self.step_count]
@@ -73,7 +78,7 @@ class SmartIrrigationEnv:
             expected_rain = float(row['expected_rainfall'])
             
         # Add noise based on volatility
-        rain_prob = max(0.0, min(1.0, rain_prob + random.uniform(-self.weather_volatility, self.weather_volatility)))
+        rain_prob = max(0.0, min(1.0, rain_prob + self.rng.uniform(-self.weather_volatility, self.weather_volatility)))
         
         return Observation(
             soil_moistures=[float(m) for m in self.true_soil_moistures],
@@ -86,12 +91,19 @@ class SmartIrrigationEnv:
             pump_capacity=float(self.pump_capacity)
         )
 
+    def _normalize_action(self, irrigation_amounts: List[int]) -> List[int]:
+        """Keep actions valid and task-compatible by clamping and resizing."""
+        sanitized = [max(0, int(v)) for v in irrigation_amounts]
+        if len(sanitized) < self.num_plots:
+            sanitized.extend([0] * (self.num_plots - len(sanitized)))
+        return sanitized[: self.num_plots]
+
     def step(self, action: Action) -> Tuple[Observation, Reward, bool, Dict[str, Any]]:
         self.step_count += 1
         
         # Enforce constraints
-        total_irrigation = sum(action.irrigation_amounts)
-        actual_irrigation = action.irrigation_amounts
+        actual_irrigation = self._normalize_action(action.irrigation_amounts)
+        total_irrigation = sum(actual_irrigation)
         if total_irrigation > self.pump_capacity:
             factor = self.pump_capacity / max(1, total_irrigation)
             actual_irrigation = [int(a * factor) for a in actual_irrigation]
@@ -117,11 +129,11 @@ class SmartIrrigationEnv:
         actual_rain = 0.0
         if self.weather_data is not None and (self.step_count - 1) < len(self.weather_data):
             row = self.weather_data.iloc[self.step_count - 1]
-            if random.random() <= row['rain_probability']:
+            if self.rng.random() <= row['rain_probability']:
                 actual_rain = row['expected_rainfall']
         else:
-            if self.upcoming_rain and random.random() < 0.8:
-                actual_rain = random.uniform(2.0, 4.0)
+            if self.upcoming_rain and self.rng.random() < 0.8:
+                actual_rain = self.rng.uniform(2.0, 4.0)
             
         # Update state and calc crop penalties
         stress_penalty = 0.0
@@ -169,7 +181,7 @@ class SmartIrrigationEnv:
         done = bool(self.step_count >= self.episode_length)
         info = {"total_irrigation": int(sum(actual_irrigation))}
         
-        self.upcoming_rain = random.random() < 0.2
+        self.upcoming_rain = self.rng.random() < 0.2
         
         return self._get_obs(), reward, done, info
 
@@ -196,3 +208,7 @@ class SmartIrrigationEnv:
         }
         
         return Grade(score=score, success=success, analytics=analytics)
+
+    def close(self) -> None:
+        # No external resources to release, but keep OpenEnv-compatible lifecycle.
+        return None
