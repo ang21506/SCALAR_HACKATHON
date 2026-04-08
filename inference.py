@@ -25,6 +25,7 @@ client = OpenAI(
     api_key=HF_TOKEN
 )
 
+
 def run_inference(task_name: str, env_id: str, seed: int = 42):
     env = SmartIrrigationEnv(task=task_name, seed=seed)
 
@@ -100,6 +101,7 @@ def run_inference(task_name: str, env_id: str, seed: int = 42):
             success_str = "true" if success else "false"
             rewards_str = ",".join([f"{r:.2f}" for r in rewards])
             print(f"[END] success={success_str} steps={step_idx} rewards={rewards_str}")
+
 
 if __name__ == "__main__":
     task_name = os.getenv("TASK_NAME", "task1_easy")
