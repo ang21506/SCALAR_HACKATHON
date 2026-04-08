@@ -35,6 +35,8 @@ def root() -> Dict[str, str]:
 
 
 @app.post("/openenv/reset")
+@app.post("/reset", include_in_schema=False)
+@app.post("/env/reset", include_in_schema=False)
 def openenv_reset(payload: Optional[ResetRequest] = None) -> Dict[str, Any]:
     global _ACTIVE_ENV
     task = _resolve_task(payload)
@@ -45,6 +47,8 @@ def openenv_reset(payload: Optional[ResetRequest] = None) -> Dict[str, Any]:
 
 
 @app.post("/openenv/step")
+@app.post("/step", include_in_schema=False)
+@app.post("/env/step", include_in_schema=False)
 def openenv_step(payload: Optional[StepRequest] = None) -> Dict[str, Any]:
     if _ACTIVE_ENV is None:
         raise HTTPException(status_code=400, detail="Environment is not initialized. Call /openenv/reset first.")
@@ -73,6 +77,8 @@ def openenv_step(payload: Optional[StepRequest] = None) -> Dict[str, Any]:
 
 
 @app.get("/openenv/state")
+@app.get("/state", include_in_schema=False)
+@app.get("/env/state", include_in_schema=False)
 def openenv_state() -> Dict[str, Any]:
     if _ACTIVE_ENV is None:
         raise HTTPException(status_code=400, detail="Environment is not initialized. Call /openenv/reset first.")
@@ -81,11 +87,15 @@ def openenv_state() -> Dict[str, Any]:
 
 
 @app.post("/openenv/state")
+@app.post("/state", include_in_schema=False)
+@app.post("/env/state", include_in_schema=False)
 def openenv_state_post() -> Dict[str, Any]:
     return openenv_state()
 
 
 @app.get("/openenv/grade")
+@app.get("/grade", include_in_schema=False)
+@app.get("/env/grade", include_in_schema=False)
 def openenv_grade() -> Dict[str, Any]:
     if _ACTIVE_ENV is None:
         raise HTTPException(status_code=400, detail="Environment is not initialized. Call /openenv/reset first.")
@@ -94,5 +104,7 @@ def openenv_grade() -> Dict[str, Any]:
 
 
 @app.post("/openenv/grade")
+@app.post("/grade", include_in_schema=False)
+@app.post("/env/grade", include_in_schema=False)
 def openenv_grade_post() -> Dict[str, Any]:
     return openenv_grade()
