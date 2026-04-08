@@ -108,3 +108,21 @@ def openenv_grade() -> Dict[str, Any]:
 @app.post("/env/grade", include_in_schema=False)
 def openenv_grade_post() -> Dict[str, Any]:
     return openenv_grade()
+
+
+@app.post("/openenv/close")
+@app.post("/close", include_in_schema=False)
+@app.post("/env/close", include_in_schema=False)
+def openenv_close() -> Dict[str, Any]:
+    global _ACTIVE_ENV
+    if _ACTIVE_ENV is not None:
+        _ACTIVE_ENV.close()
+        _ACTIVE_ENV = None
+    return {"closed": True}
+
+
+@app.get("/openenv/close")
+@app.get("/close", include_in_schema=False)
+@app.get("/env/close", include_in_schema=False)
+def openenv_close_get() -> Dict[str, Any]:
+    return openenv_close()
