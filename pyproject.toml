@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smart-irrigation-openenv"
+version = "0.1.0"
+description = "OpenEnv Smart Irrigation environment and server"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic",
+    "openai",
+    "pandas",
+    "fastapi",
+    "uvicorn[standard]",
+]
