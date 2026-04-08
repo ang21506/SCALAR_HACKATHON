@@ -7,4 +7,4 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY . /code
 
-CMD ["gradio", "app.py"]
+CMD ["sh", "-c", "python inference.py || true; python -m http.server 7860 --bind 0.0.0.0"]
