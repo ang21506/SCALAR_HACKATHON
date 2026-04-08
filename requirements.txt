@@ -1,0 +1,5 @@
+pydantic
+gradio
+openai
+matplotlib
+pandas
