@@ -7,4 +7,5 @@ RUN pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY . /code
 
-CMD ["gradio", "app.py"]
+EXPOSE 7860
+CMD ["uvicorn", "openenv_server:app", "--host", "0.0.0.0", "--port", "7860"]

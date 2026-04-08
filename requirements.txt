@@ -3,3 +3,5 @@ gradio
 openai
 matplotlib
 pandas
+fastapi
+uvicorn
