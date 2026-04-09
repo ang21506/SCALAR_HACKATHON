@@ -197,9 +197,10 @@ class SmartIrrigationEnv:
         max_possible = self.episode_length * 0.5 * self.num_plots
         raw_score = (self.cumulative_reward / max_possible) if max_possible > 0 else 0.0
         clipped_score = max(0.0, min(1.0, raw_score))
-        # Phase-2 validator requires score to be strictly between 0 and 1.
-        eps = 1e-6
-        score = min(1.0 - eps, max(eps, clipped_score))
+        # Keep score visibly inside (0, 1) even if a validator rounds to 2 decimals.
+        min_score = 0.01
+        max_score = 0.99
+        score = min(max_score, max(min_score, clipped_score))
         success = score >= 0.7
         
         analytics = {
