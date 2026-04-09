@@ -12,6 +12,24 @@ app = FastAPI(title="Smart Irrigation OpenEnv Server")
 # Keep one active environment instance for the current evaluator session.
 _ACTIVE_ENV: Optional[SmartIrrigationEnv] = None
 
+_TASK_SPECS = [
+    {
+        "id": "task1_easy",
+        "description": "Single crop, identical soil across 2 plots, simple tariff schedule, relatively accurate weather forecast.",
+        "grader": "openenv/grade",
+    },
+    {
+        "id": "task2_medium",
+        "description": "Mixed crops spread across 4 plots, tighter water quotas, and pronounced peak/off-peak tariff differences.",
+        "grader": "openenv/grade",
+    },
+    {
+        "id": "task3_hard",
+        "description": "5 diverse plots, highly uncertain rainfall, strict water limits, and complex tariffs.",
+        "grader": "openenv/grade",
+    },
+]
+
 
 class ResetRequest(BaseModel):
     task: Optional[str] = None
@@ -32,6 +50,20 @@ def _resolve_task(payload: Optional[ResetRequest]) -> str:
 @app.get("/")
 def root() -> Dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/openenv/tasks")
+@app.get("/tasks", include_in_schema=False)
+@app.get("/env/tasks", include_in_schema=False)
+def openenv_tasks() -> Dict[str, Any]:
+    return {"tasks": _TASK_SPECS}
+
+
+@app.post("/openenv/tasks")
+@app.post("/tasks", include_in_schema=False)
+@app.post("/env/tasks", include_in_schema=False)
+def openenv_tasks_post() -> Dict[str, Any]:
+    return openenv_tasks()
 
 
 @app.post("/openenv/reset")
@@ -100,7 +132,8 @@ def openenv_grade() -> Dict[str, Any]:
     if _ACTIVE_ENV is None:
         raise HTTPException(status_code=400, detail="Environment is not initialized. Call /openenv/reset first.")
     grade_dict = _ACTIVE_ENV.grade().model_dump()
-    return {"grade": grade_dict}
+    # Return both nested and top-level fields for compatibility across evaluators.
+    return {"grade": grade_dict, **grade_dict}
 
 
 @app.post("/openenv/grade")
