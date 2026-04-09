@@ -195,7 +195,11 @@ class SmartIrrigationEnv:
 
     def grade(self) -> Grade:
         max_possible = self.episode_length * 0.5 * self.num_plots
-        score = max(0.0, self.cumulative_reward / max_possible) if max_possible > 0 else 0.0
+        raw_score = (self.cumulative_reward / max_possible) if max_possible > 0 else 0.0
+        clipped_score = max(0.0, min(1.0, raw_score))
+        # Phase-2 validator requires score to be strictly between 0 and 1.
+        eps = 1e-6
+        score = min(1.0 - eps, max(eps, clipped_score))
         success = score >= 0.7
         
         analytics = {
@@ -204,7 +208,8 @@ class SmartIrrigationEnv:
             "Total Stress Penalty": f"-{self.total_stress_penalty:.2f} points (Under-watering)",
             "Total Waste Penalty": f"-{self.total_waste_penalty:.2f} points (Over-watering / Rain overlap)",
             "Maximum Possible Points": f"{max_possible:.2f}",
-            "Achieved Points": f"{self.cumulative_reward:.2f}"
+            "Achieved Points": f"{self.cumulative_reward:.2f}",
+            "Raw Score": f"{raw_score:.6f}"
         }
         
         return Grade(score=score, success=success, analytics=analytics)
