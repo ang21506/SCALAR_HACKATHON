@@ -19,7 +19,6 @@ _TASK_SPECS = [
         "description": "Single crop, identical soil across 2 plots, simple tariff schedule, relatively accurate weather forecast.",
         "difficulty": "easy",
         "grader": "tasks.py:grade_task1_easy",
-        "graders": [{"grader": "tasks.py:grade_task1_easy", "score": 0.5}],
     },
     {
         "id": "task2_medium",
@@ -27,7 +26,6 @@ _TASK_SPECS = [
         "description": "Mixed crops spread across 4 plots, tighter water quotas, and pronounced peak/off-peak tariff differences.",
         "difficulty": "medium",
         "grader": "tasks.py:grade_task2_medium",
-        "graders": [{"grader": "tasks.py:grade_task2_medium", "score": 0.5}],
     },
     {
         "id": "task3_hard",
@@ -35,7 +33,6 @@ _TASK_SPECS = [
         "description": "5 diverse plots, highly uncertain rainfall, strict water limits, and complex tariffs.",
         "difficulty": "hard",
         "grader": "tasks.py:grade_task3_hard",
-        "graders": [{"grader": "tasks.py:grade_task3_hard", "score": 0.5}],
     },
 ]
 
