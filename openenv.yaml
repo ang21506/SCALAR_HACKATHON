@@ -16,15 +16,9 @@ tasks:
   - id: task1_easy
     description: "Single crop, identical soil across 2 plots, simple tariff schedule, relatively accurate weather forecast."
     grader: openenv/grade
-    graders:
-      - score: 0.5
   - id: task2_medium
     description: "Mixed crops spread across 4 plots, tighter water quotas, and pronounced peak/off-peak tariff differences."
     grader: openenv/grade
-    graders:
-      - score: 0.5
   - id: task3_hard
     description: "5 diverse plots, highly uncertain rainfall, strict water limits, and complex tariffs."
     grader: openenv/grade
-    graders:
-      - score: 0.5
