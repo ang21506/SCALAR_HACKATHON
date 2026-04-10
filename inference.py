@@ -34,6 +34,7 @@ def run_inference(task_name: str, env_id: str, seed: int = 42):
     step_idx = 0
     rewards = []
     success = False
+    final_score = 0.01
 
     try:
         obs = env.reset(seed=seed)
@@ -92,19 +93,28 @@ def run_inference(task_name: str, env_id: str, seed: int = 42):
 
         grade = env.grade()
         success = bool(grade.success)
+        final_score = float(grade.score)
     except Exception:
         success = False
+        final_score = 0.01
     finally:
         try:
             env.close()
         finally:
             success_str = "true" if success else "false"
             rewards_str = ",".join([f"{r:.2f}" for r in rewards])
-            print(f"[END] success={success_str} steps={step_idx} rewards={rewards_str}")
+            score_val = max(0.01, min(0.99, float(final_score)))
+            print(f"[END] task={task_name} success={success_str} score={score_val:.4f} steps={step_idx} rewards={rewards_str}")
 
 
 if __name__ == "__main__":
-    task_name = os.getenv("TASK_NAME", "task1_easy")
     env_id = os.getenv("BENCHMARK", "smart-irrigation")
     seed = int(os.getenv("SEED", "42"))
-    run_inference(task_name=task_name, env_id=env_id, seed=seed)
+
+    explicit_task = os.getenv("TASK_NAME")
+    if explicit_task and explicit_task.strip():
+        run_inference(task_name=explicit_task.strip(), env_id=env_id, seed=seed)
+    else:
+        # Default to all benchmark tasks so validators can collect >=3 task scores.
+        for task_name in ["task1_easy", "task2_medium", "task3_hard"]:
+            run_inference(task_name=task_name, env_id=env_id, seed=seed)
