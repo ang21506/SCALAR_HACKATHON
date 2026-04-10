@@ -14,11 +14,17 @@ schemas:
   state: schemas.py:State
 tasks:
   - id: task1_easy
+    name: "Task 1 Easy"
     description: "Single crop, identical soil across 2 plots, simple tariff schedule, relatively accurate weather forecast."
+    difficulty: easy
     grader: openenv/grade
   - id: task2_medium
+    name: "Task 2 Medium"
     description: "Mixed crops spread across 4 plots, tighter water quotas, and pronounced peak/off-peak tariff differences."
+    difficulty: medium
     grader: openenv/grade
   - id: task3_hard
+    name: "Task 3 Hard"
     description: "5 diverse plots, highly uncertain rainfall, strict water limits, and complex tariffs."
+    difficulty: hard
     grader: openenv/grade
